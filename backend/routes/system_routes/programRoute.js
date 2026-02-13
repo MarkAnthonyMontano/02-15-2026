@@ -3,36 +3,17 @@ const { db3 } = require("../database/database");
 
 const router = express.Router();
 
-// Normalize function for duplicate checking
-const normalize = (v) => v.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-
 // ---------------------------- CREATE PROGRAM ----------------------------------
 router.post("/program", async (req, res) => {
   const { name, code, major, components } = req.body;
 
-if (!["0", "1"].includes(components)) {
-  return res.status(400).json({
-    message: "Invalid campus value",
-  });
-}
-
+  if (!["0", "1"].includes(components)) {
+    return res.status(400).json({
+      message: "Invalid campus value",
+    });
+  }
 
   try {
-    const normalized_code = normalize(code);
-
-    const [rows] = await db3.query("SELECT program_code FROM program_table");
-
-    const isDuplicate = rows.some((row) => {
-      const normalized_db_code = normalize(row.program_code);
-      return normalized_db_code === normalized_code;
-    });
-
-    if (isDuplicate) {
-      return res.status(400).json({
-        message: "Program already exists",
-      });
-    }
-
     await db3.query(
       `INSERT INTO program_table 
        (program_description, program_code, major, components)
@@ -61,34 +42,16 @@ router.get("/get_program", async (req, res) => {
 // -------------------- UPDATE PROGRAM --------------------
 router.put("/program/:id", async (req, res) => {
   const { id } = req.params;
-const { name, code, major, components } = req.body;
+  const { name, code, major, components } = req.body;
 
-if (!["0", "1"].includes(components)) {
-  return res.status(400).json({
-    message: "Invalid campus value",
-  });
-}
+  if (!["0", "1"].includes(components)) {
+    return res.status(400).json({
+      message: "Invalid campus value",
+    });
+  }
 
   try {
-    const normalized_code = normalize(code);
-
-    const [rows] = await db3.query(
-      "SELECT program_code FROM program_table WHERE program_id != ?",
-      [id]
-    );
-
-    const isDuplicate = rows.some((row) => {
-      const normalized_db_code = normalize(row.program_code);
-      return normalized_db_code === normalized_code;
-    });
-
-    if (isDuplicate) {
-      return res.status(400).json({
-        message: "Program already exists",
-      });
-    }
-
-    await db3.query(
+    const [result] = await db3.query(
       `UPDATE program_table
        SET program_description = ?, 
            program_code = ?, 
@@ -97,6 +60,10 @@ if (!["0", "1"].includes(components)) {
        WHERE program_id = ?`,
       [name, code, major, components, id]
     );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Program not found" });
+    }
 
     res.json({ message: "Program updated successfully" });
   } catch (err) {
@@ -129,13 +96,13 @@ router.delete("/program/:id", async (req, res) => {
 // -------------------- SUPERADMIN UPDATE PROGRAM --------------------
 router.put("/update_program/:id", async (req, res) => {
   const { id } = req.params;
-const { name, code, major, components } = req.body;
+  const { name, code, major, components } = req.body;
 
-if (!["0", "1"].includes(components)) {
-  return res.status(400).json({
-    message: "Invalid campus value",
-  });
-}
+  if (!["0", "1"].includes(components)) {
+    return res.status(400).json({
+      message: "Invalid campus value",
+    });
+  }
 
   try {
     const [result] = await db3.query(
