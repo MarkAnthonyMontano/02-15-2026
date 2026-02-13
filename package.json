@@ -7,10 +7,12 @@
    "dependencies": {
       "@react-pdf/renderer": "^4.3.2",
       "choco": "^0.2.1",
+      "exceljs": "^4.4.0",
       "file-saver": "^2.0.5",
       "html5-qrcode": "^2.3.8",
       "install": "^0.13.0",
       "jspdf": "^4.1.0",
+      "jspdf-autotable": "^5.0.7",
       "jszip": "^3.10.1",
       "jwt-decode": "^4.0.0",
       "mkcert": "^3.2.0",

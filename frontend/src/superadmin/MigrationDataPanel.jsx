@@ -7,6 +7,11 @@ import { FaFileExcel } from "react-icons/fa";
 import API_BASE_URL from '../apiConfig';
 import Unauthorized from "../components/Unauthorized";
 import LoadingOverlay from "../components/LoadingOverlay";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
+import EaristLogo from "../assets/EaristLogo.png";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const MigrationDataPanel = () => {
     const settings = useContext(SettingsContext);
@@ -48,6 +53,7 @@ const MigrationDataPanel = () => {
 
     }, [settings]);
 
+
     const [searchQuery, setSearchQuery] = useState("");
     const [studentInfo, setStudentInfo] = useState(null);
     const [studentGradeList, setStudentGradeList] = useState([]);
@@ -81,6 +87,189 @@ const MigrationDataPanel = () => {
             setExcelFile(file);
         }
     };
+
+  const exportExcel = async () => {
+  const res = await axios.get(`${API_BASE_URL}/get_students_grouped`);
+  const students = res.data;
+
+  const workbook = new ExcelJS.Workbook();
+
+  // GROUP BY PROGRAM
+  const grouped = {};
+  students.forEach(s => {
+    if (!grouped[s.program_code]) grouped[s.program_code] = [];
+    grouped[s.program_code].push(s);
+  });
+
+  for (const program in grouped) {
+    const list = grouped[program];
+    const first = list[0];
+
+    // Sheet name = Program Code
+    const ws = workbook.addWorksheet(program);
+
+    // ===== HEADER INFO =====
+    ws.mergeCells("A1:D1");
+    ws.getCell("A1").value = companyName || "SCHOOL NAME";
+    ws.getCell("A1").font = { bold: true, size: 16 };
+    ws.getCell("A1").alignment = { horizontal: "center" };
+
+    ws.mergeCells("A2:D2");
+    ws.getCell("A2").value = campusAddress || "";
+    ws.getCell("A2").alignment = { horizontal: "center" };
+
+    ws.mergeCells("A4:D4");
+    ws.getCell("A4").value = `${first.dprtmnt_code} - ${first.dprtmnt_name}`;
+    ws.getCell("A4").font = { bold: true };
+    ws.getCell("A4").alignment = { horizontal: "center" };
+
+    ws.mergeCells("A5:D5");
+    ws.getCell("A5").value = `${first.program_code} - ${first.program_description} ${first.major || ""}`;
+    ws.getCell("A5").font = { bold: true };
+    ws.getCell("A5").alignment = { horizontal: "center" };
+
+    ws.mergeCells("A6:D6");
+    ws.getCell("A6").value = "STUDENT LIST";
+    ws.getCell("A6").font = { bold: true, size: 14 };
+    ws.getCell("A6").alignment = { horizontal: "center" };
+
+    // ===== TABLE HEADER =====
+    ws.addRow([]);
+    ws.addRow(["#", "Student Number", "Name", "Year Level"]);
+
+    ws.columns = [
+      { width: 5 },
+      { width: 20 },
+      { width: 35 },
+      { width: 15 },
+    ];
+
+    // ===== DATA =====
+    list.forEach((s, i) => {
+      ws.addRow([
+        i + 1,
+        s.student_number,
+        `${s.last_name}, ${s.first_name} ${s.middle_name || ""}`,
+        s.year_level_description
+      ]);
+    });
+
+    // ===== BORDERS =====
+    ws.eachRow((row) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
+    });
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), "Students_By_Program.xlsx");
+};
+
+
+    const getBase64FromUrl = async (url) => {
+  const data = await fetch(url);
+  const blob = await data.blob();
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+};
+
+const exportPDF = async () => {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/get_students_grouped`);
+    const students = res.data;
+    if (!students.length) return alert("No students found");
+
+    const doc = new jsPDF("landscape", "mm", "a4");
+
+    // GROUP BY PROGRAM
+    const grouped = {};
+    students.forEach(s => {
+      if (!grouped[s.program_code]) grouped[s.program_code] = [];
+      grouped[s.program_code].push(s);
+    });
+
+    const school = companyName || "School Name";
+    const address = campusAddress || "";
+
+    let logoBase64 = null;
+    if (fetchedLogo) {
+      try {
+        logoBase64 = await getBase64FromUrl(fetchedLogo);
+      } catch (e) {
+        console.warn("Logo failed, using default");
+      }
+    }
+
+    let firstPage = true;
+
+    for (const program in grouped) {
+      if (!firstPage) doc.addPage();
+      firstPage = false;
+
+      const list = grouped[program];
+      const first = list[0];
+
+      const deptLine = `${first.dprtmnt_code} - ${first.dprtmnt_name}`;
+      const programLine = `${first.program_code} - ${first.program_description} ${first.major || ""}`;
+
+      // LOGO
+      if (logoBase64) doc.addImage(logoBase64, "PNG", 10, 10, 25, 25);
+
+      // HEADER
+      doc.setFont("Times", "Bold");
+      doc.setFontSize(12);
+      doc.text("Republic of the Philippines", 150, 15, { align: "center" });
+
+      doc.setFontSize(18);
+      doc.text(school, 150, 25, { align: "center" });
+
+      doc.setFontSize(11);
+      doc.text(address, 150, 32, { align: "center" });
+
+      doc.setFontSize(14);
+      doc.text(deptLine, 150, 45, { align: "center" });
+
+      doc.setFontSize(12);
+      doc.text(programLine, 150, 52, { align: "center" });
+
+      doc.setFontSize(16);
+      doc.text("STUDENT LIST", 150, 62, { align: "center" });
+
+      const tableData = list.map((s, i) => [
+        i + 1,
+        s.student_number,
+        `${s.last_name}, ${s.first_name} ${s.middle_name || ""}`,
+        s.year_level_description
+      ]);
+
+      autoTable(doc, {
+        startY: 70,
+        head: [["#", "Student Number", "Name", "Year Level"]],
+        body: tableData,
+        theme: "grid",
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [128, 0, 0] },
+      });
+    }
+
+    doc.save("Students_By_Program.pdf");
+
+  } catch (err) {
+    console.error("PDF ERROR FULL:", err);
+    alert("PDF export failed");
+  }
+};
+
+
 
     const showSnack = (message, severity = "info") => {
         setSnackbar({ open: true, message, severity });
@@ -131,7 +320,7 @@ const MigrationDataPanel = () => {
             });
         }
     };
-    
+
 
     const divToPrintRef = useRef();
     const [showPrintView, setShowPrintView] = useState(false);
@@ -279,9 +468,9 @@ const MigrationDataPanel = () => {
                     Student Grades Migration Button
                 </Typography>
                 <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: 200, mt: 2 }}>
-                    <Box sx={{display: "flex", alignItems: "center", gap: "1rem", marginBottom: 2.5, marginRight: 2}}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: 2.5, marginRight: 2 }}>
                         <Typography>
-                            Campus: 
+                            Campus:
                         </Typography>
                         <TextField
                             select
@@ -296,9 +485,9 @@ const MigrationDataPanel = () => {
                             <option value="2">Cavite</option>
                         </TextField>
                     </Box>
-                    
+
                     <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: 200 }}>
-                        
+
                         <input
                             type="file"
                             accept=".xlsx,.xls"
@@ -307,6 +496,8 @@ const MigrationDataPanel = () => {
                             id="grades-excel-upload"
                         />
 
+
+                        <div ref={divToPrintRef} style={{ position: "absolute", left: "-9999px", top: 0 }}></div>
                         <button
                             onClick={() => document.getElementById("grades-excel-upload").click()}
                             style={{
@@ -442,6 +633,10 @@ const MigrationDataPanel = () => {
                         </Button>
                     </Box>
                 </Box>
+
+
+                <Button onClick={exportExcel}>Export Excel</Button>
+                <Button onClick={exportPDF}>Export PDF</Button>
             </Box>
 
             <Snackbar

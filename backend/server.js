@@ -19698,7 +19698,41 @@ app.post("/api/generate-cor-pdf", async (req, res) => {
   }
 });
 
+app.get("/get_students_grouped", async (req, res) => {
+  try {
 
+    const [rows] = await db3.query(`
+ SELECT DISTINCT
+snt.student_number, 
+pt.first_name, 
+pt.middle_name, 
+pt.last_name, 
+dt.dprtmnt_code, 
+dt.dprtmnt_name,
+pgt.program_code,
+pgt.program_description,
+pgt.major,
+ylt.year_level_description
+FROM enrolled_subject es
+JOIN student_status_table sst ON es.student_number = sst.student_number
+JOIN student_numbering_table snt ON sst.student_number = snt.student_number
+JOIN person_table pt ON snt.person_id = pt.person_id
+JOIN dprtmnt_curriculum_table dct ON es.curriculum_id = dct.curriculum_id
+JOIN curriculum_table cct ON dct.curriculum_id = cct.curriculum_id
+JOIN dprtmnt_table dt ON dct.dprtmnt_id = dt.dprtmnt_id
+JOIN program_table pgt ON cct.program_id = pgt.program_id
+JOIN year_level_table ylt ON sst.year_level_id = ylt.year_level_id
+ORDER BY dt.dprtmnt_code, pgt.program_code, pt.last_name;
+
+    `);
+
+    res.json(rows);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed fetching students" });
+  }
+});
 
 
 const PORT = process.env.WEB_PORT || 5000;
