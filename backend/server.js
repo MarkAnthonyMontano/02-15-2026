@@ -39,7 +39,7 @@ const allowedOrigins = [
   'http://192.168.50.98:5173',
   'http://192.168.50.211:5173',
   'http://136.239.248.58:5173',
-  'http://192.168.50.53:5173',
+  'http://192.168.1.5:5173',
 ];
 
 app.use(
@@ -92,6 +92,8 @@ const medicalExamRoute = require("./routes/admission_routes/medicalExamRoute");
 const qrCodeForStudents = require("./routes/qrCodeForStudents");
 const studentPayment = require('./routes/payment/studentScholarship');
 const programRoute = require("./routes/system_routes/programRoute");
+const applicantRoutes = require("./routes/reset_password_routes/applicantresetpasswordRoutes");
+const studentRoutes = require("./routes/reset_password_routes/studentresetpasswordRoutes");
 
 app.use("/", programRoute);
 app.use("/auth/", authRoute);
@@ -111,6 +113,8 @@ app.use("/", QualifyingInterviewExam);
 app.use("/", medicalExamRoute);
 app.use("/", qrCodeForStudents);
 app.use("/", studentPayment);
+app.use("/", applicantRoutes);
+app.use("/", studentRoutes);
 
 const uploadPath = path.join(__dirname, "uploads");
 
@@ -5774,200 +5778,8 @@ app.post("/login_prof", async (req, res) => {
   }
 });
 
-//APPLICANT RESET PASSWORD ADMIN 09/06/2025
-// ---------------- Applicant: Get Info ----------------
-// ---------------- Applicant: Get Info ----------------
-app.post("/superadmin-get-applicant", async (req, res) => {
-  const { email } = req.body; // "email" field is used for search input
-  try {
-    const search = `%${email}%`;
 
-    const [rows] = await db.query(
-      `SELECT 
-          ant.applicant_number,
-          ua.email,
-          ua.status,
-          pt.first_name,
-          pt.middle_name,
-          pt.last_name,
-          pt.birthOfDate
-       FROM user_accounts ua
-       JOIN person_table pt ON ua.person_id = pt.person_id
-       LEFT JOIN applicant_numbering_table ant ON ant.person_id = pt.person_id
-       WHERE ua.role = 'applicant'
-         AND (
-              pt.first_name LIKE ? OR
-              pt.middle_name LIKE ? OR
-              pt.last_name LIKE ? OR
-              ua.email LIKE ? OR
-              ant.applicant_number LIKE ?
-         )
-       LIMIT 1`,
-      [search, search, search, search, search],
-    );
 
-    if (!rows.length)
-      return res.status(404).json({ message: "Applicant not found" });
-
-    const user = rows[0];
-    res.json({
-      applicant_number: user.applicant_number,
-      email: user.email,
-      fullName:
-        `${user.last_name}, ${user.first_name} ${user.middle_name || ""}`.trim(),
-      birthdate: user.birthOfDate,
-      status: user.status,
-    });
-  } catch (err) {
-    console.error("Get applicant error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// ✅ SUPER ADMIN - RESET APPLICANT PASSWORD
-app.post("/superadmin-reset-applicant", async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    // 🔍 Check if applicant exists
-    const [rows] = await db.query(
-      `SELECT user_id FROM user_accounts WHERE email = ? AND role = 'applicant'`,
-      [email],
-    );
-
-    if (!rows.length) {
-      return res.status(404).json({ message: "Applicant not found" });
-    }
-
-    // 🔹 Generate random 8-character uppercase password (A–Z)
-    const newPassword = Array.from({ length: 8 }, () =>
-      String.fromCharCode(Math.floor(Math.random() * 26) + 65),
-    ).join("");
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // 🔹 Update applicant password in DB
-    await db.query(`UPDATE user_accounts SET password = ? WHERE email = ?`, [
-      hashedPassword,
-      email,
-    ]);
-
-    // 🔹 Fetch short term from company settings
-    const [settings] = await db.query(
-      "SELECT short_term FROM company_settings WHERE id = 1",
-    );
-    const shortTerm =
-      settings.length > 0 && settings[0].short_term
-        ? settings[0].short_term
-        : "Institution";
-
-    // 🔹 Configure email transport
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    // 🔹 Send email with institution short term
-    await transporter.sendMail({
-      from: `"${shortTerm} - Information System" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Your Password has been Reset",
-      text: `Your new temporary password is: ${newPassword}\n\nPlease change it after logging in.`,
-    });
-
-    res.json({
-      message: `Password reset successfully. Check your email for the new password.`,
-    });
-  } catch (err) {
-    console.error("Reset password error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// ---------------- Applicant: Update Status ---------------- //
-app.post("/superadmin-update-status-applicant", async (req, res) => {
-  const { email, status } = req.body;
-  try {
-    await db.query(
-      `UPDATE user_accounts SET status = ? WHERE email = ? AND role = 'applicant'`,
-      [status, email],
-    );
-    res.json({ message: "Applicant status updated successfully" });
-  } catch (err) {
-    console.error("Update applicant status error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-//STUDENT RESET PASSWORD ADMIN 09/06/2025
-// ---------------- Student: Get Info ----------------
-app.post("/superadmin-get-student", async (req, res) => {
-  const { search } = req.body;
-
-  try {
-    const like = `%${search}%`;
-
-    const [rows] = await db3.query(
-      `SELECT ua.status, ua.email,
-              pt.student_number, pt.first_name, pt.middle_name, pt.last_name, pt.birthOfDate
-       FROM user_accounts ua
-       JOIN person_table pt ON ua.person_id = pt.person_id
-       WHERE ua.role = 'student'
-         AND (
-              pt.student_number LIKE ?
-              OR LOWER(ua.email) LIKE LOWER(?)
-              OR LOWER(pt.first_name) LIKE LOWER(?)
-              OR LOWER(pt.middle_name) LIKE LOWER(?)
-              OR LOWER(pt.last_name) LIKE LOWER(?)
-              OR LOWER(CONCAT(pt.first_name, ' ', pt.last_name)) LIKE LOWER(?)
-              OR LOWER(CONCAT(pt.last_name, ' ', pt.first_name)) LIKE LOWER(?)
-              OR LOWER(CONCAT(pt.first_name, ' ', pt.middle_name, ' ', pt.last_name)) LIKE LOWER(?)
-         )
-       LIMIT 1`,
-      [like, like, like, like, like, like, like, like],
-    );
-
-    if (!rows.length) {
-      return res.status(404).json({ message: "Student not found" });
-    }
-
-    const user = rows[0];
-    res.json({
-      student_number: user.student_number,
-      email: user.email,
-      fullName:
-        `${user.first_name} ${user.middle_name || ""} ${user.last_name}`.trim(),
-      birthdate: user.birthOfDate,
-      status: user.status ?? 0,
-    });
-  } catch (err) {
-    console.error("Get student error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// ---------------- Student: Update Status ----------------
-app.post("/superadmin-update-status-student", async (req, res) => {
-  const { email, status } = req.body;
-  try {
-    const [result] = await db3.query(
-      `UPDATE user_accounts SET status = ? WHERE email = ? AND role = 'student'`,
-      [status, email],
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Student not found" });
-    }
-
-    res.json({ message: "Student status updated successfully", status });
-  } catch (err) {
-    console.error("Update student status error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
 
 //REGISTRAR RESET PASSWORD ADMIN 09/06/2025
 // ---------------- Registrar: Get Info ----------------

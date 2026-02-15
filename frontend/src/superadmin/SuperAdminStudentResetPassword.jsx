@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { SettingsContext } from "../App";
 import axios from "axios";
+
 import {
   Box,
   Button,
@@ -8,207 +9,368 @@ import {
   Typography,
   Paper,
   MenuItem,
+  FormControl,
+  Select
 } from "@mui/material";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from "@mui/material";
+import { Snackbar, Alert } from "@mui/material";
+
 import SearchIcon from "@mui/icons-material/Search";
+
 import Unauthorized from "../components/Unauthorized";
 import LoadingOverlay from "../components/LoadingOverlay";
+
 import API_BASE_URL from "../apiConfig";
+
+
 const SuperAdminStudentResetPassword = () => {
+
+  /* =====================================
+     SETTINGS
+  ===================================== */
   const settings = useContext(SettingsContext);
 
-  const [titleColor, setTitleColor] = useState("#000000");
-  const [subtitleColor, setSubtitleColor] = useState("#555555");
-  const [borderColor, setBorderColor] = useState("#000000");
+  const [titleColor, setTitleColor] = useState("#000");
+  const [borderColor, setBorderColor] = useState("#000");
   const [mainButtonColor, setMainButtonColor] = useState("#1976d2");
-  const [subButtonColor, setSubButtonColor] = useState("#ffffff");   // ✅ NEW
-  const [stepperColor, setStepperColor] = useState("#000000");       // ✅ NEW
 
-  const [fetchedLogo, setFetchedLogo] = useState(null);
-  const [companyName, setCompanyName] = useState("");
-  const [shortTerm, setShortTerm] = useState("");
-  const [campusAddress, setCampusAddress] = useState("");
 
   useEffect(() => {
     if (!settings) return;
 
-    // 🎨 Colors
     if (settings.title_color) setTitleColor(settings.title_color);
-    if (settings.subtitle_color) setSubtitleColor(settings.subtitle_color);
     if (settings.border_color) setBorderColor(settings.border_color);
     if (settings.main_button_color) setMainButtonColor(settings.main_button_color);
-    if (settings.sub_button_color) setSubButtonColor(settings.sub_button_color);   // ✅ NEW
-    if (settings.stepper_color) setStepperColor(settings.stepper_color);           // ✅ NEW
-
-    // 🏫 Logo
-    if (settings.logo_url) {
-      setFetchedLogo(`${API_BASE_URL}${settings.logo_url}`);
-    } else {
-      setFetchedLogo(EaristLogo);
-    }
-
-    // 🏷️ School Information
-    if (settings.company_name) setCompanyName(settings.company_name);
-    if (settings.short_term) setShortTerm(settings.short_term);
-    if (settings.campus_address) setCampusAddress(settings.campus_address);
 
   }, [settings]);
 
-  const [userID, setUserID] = useState("");
-  const [user, setUser] = useState("");
-  const [userRole, setUserRole] = useState("");
+
+  /* =====================================
+     AUTH
+  ===================================== */
   const [hasAccess, setHasAccess] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
 
   const pageId = 91;
-
   const [employeeID, setEmployeeID] = useState("");
+
 
   useEffect(() => {
 
-    const storedUser = localStorage.getItem("email");
-    const storedRole = localStorage.getItem("role");
-    const storedID = localStorage.getItem("person_id");
-    const storedEmployeeID = localStorage.getItem("employee_id");
+    const email = localStorage.getItem("email");
+    const role = localStorage.getItem("role");
+    const empID = localStorage.getItem("employee_id");
 
-    if (storedUser && storedRole && storedID) {
-      setUser(storedUser);
-      setUserRole(storedRole);
-      setUserID(storedID);
-      setEmployeeID(storedEmployeeID);
-
-      if (storedRole === "registrar") {
-        checkAccess(storedEmployeeID);
-      } else {
-        window.location.href = "/login";
-      }
-    } else {
+    if (!email || role !== "registrar") {
       window.location.href = "/login";
+      return;
     }
+
+    setEmployeeID(empID);
+    checkAccess(empID);
+
   }, []);
 
-  const checkAccess = async (employeeID) => {
+
+  const checkAccess = async (id) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/page_access/${employeeID}/${pageId}`);
-      if (response.data && response.data.page_privilege === 1) {
-        setHasAccess(true);
-      } else {
-        setHasAccess(false);
-      }
-    } catch (error) {
-      console.error('Error checking access:', error);
+      const res = await axios.get(
+        `${API_BASE_URL}/api/page_access/${id}/${pageId}`
+      );
+
+      setHasAccess(res.data?.page_privilege === 1);
+
+    } catch {
       setHasAccess(false);
-      if (error.response && error.response.data.message) {
-        console.log(error.response.data.message);
-      } else {
-        console.log("An unexpected error occurred.");
-      }
-      setLoading(false);
     }
   };
 
+
+  /* =====================================
+     SNACKBAR
+  ===================================== */
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+
+
+  /* =====================================
+     SEARCH
+  ===================================== */
   const [searchQuery, setSearchQuery] = useState("");
   const [userInfo, setUserInfo] = useState(null);
-
-  const [resetMsg, setResetMsg] = useState("");
   const [searchError, setSearchError] = useState("");
 
+
+  /* =====================================
+     FETCH SINGLE STUDENT
+  ===================================== */
   useEffect(() => {
-    const fetchInfo = async () => {
-      if (!searchQuery) {
-        setUserInfo(null);
-        setSearchError("");
-        return;
-      }
-      setSearchLoading(true);
-      setResetMsg("");
+
+    if (!searchQuery) {
+      setUserInfo(null);
       setSearchError("");
+      return;
+    }
+
+    const fetchStudent = async () => {
 
       try {
-        const res = await axios.post(`${API_BASE_URL}/superadmin-get-student`, {
-          search: searchQuery,
-        });
+        const res = await axios.post(
+          `${API_BASE_URL}/superadmin-get-student`,
+          { search: searchQuery }
+        );
+
         setUserInfo(res.data);
+
       } catch (err) {
-        setSearchError(err.response?.data?.message || "No student found.");
+
+        setSearchError(
+          err.response?.data?.message || "Student not found"
+        );
+
         setUserInfo(null);
-      } finally {
-        setSearchLoading(false);
       }
     };
 
-    const delayDebounce = setTimeout(fetchInfo, 600);
-    return () => clearTimeout(delayDebounce);
+    const delay = setTimeout(fetchStudent, 600);
+
+    return () => clearTimeout(delay);
+
   }, [searchQuery]);
 
 
+  /* =====================================
+     FETCH ALL STUDENTS
+  ===================================== */
+  const [students, setStudents] = useState([]);
+
+  useEffect(() => {
+
+    const fetchStudents = async () => {
+
+      setLoading(true);
+
+      try {
+        const res = await axios.get(
+          `${API_BASE_URL}/superadmin-get-all-students`
+        );
+
+        setStudents(res.data);
+
+      } catch (err) {
+        console.error("Fetch students error", err);
+      }
+
+      setLoading(false);
+    };
+
+    fetchStudents();
+
+  }, []);
+
+
+  /* =====================================
+     RESET PASSWORD
+  ===================================== */
   const handleReset = async () => {
+
     if (!userInfo) return;
+
     setLoading(true);
 
     try {
-      const res = await axios.post(`${API_BASE_URL}/forgot-password-student`, {
-        search: searchQuery,   // 🔥 this is the FIX
+
+      const res = await axios.post(
+        `${API_BASE_URL}/superadmin-reset-student`,
+        { search: userInfo.email }
+      );
+
+      setSnackbar({
+        open: true,
+        message: res.data.message,
+        severity: "success",
       });
 
-      setResetMsg(res.data.message);
     } catch (err) {
-      setSearchError(err.response?.data?.message || "Error resetting password");
+
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || "Reset failed",
+        severity: "error",
+      });
+
     } finally {
       setLoading(false);
     }
   };
 
 
-  // ✅ Update status
+  /* =====================================
+     UPDATE STATUS
+  ===================================== */
   const handleStatusChange = async (e) => {
-    const newStatus = parseInt(e.target.value, 10);
-    setUserInfo((prev) => ({ ...prev, status: newStatus }));
+
+    const newStatus = Number(e.target.value);
+
+    setUserInfo(prev => ({
+      ...prev,
+      status: newStatus
+    }));
 
     try {
-      await axios.post(`${API_BASE_URL}/superadmin-update-status-student`, {
-        student_number: userInfo.student_number,
-        status: newStatus,
-      });
-    } catch (err) {
-      console.error("Failed to update status", err);
+
+      await axios.post(
+        `${API_BASE_URL}/superadmin-update-status-student`,
+        {
+          email: userInfo.email,
+          status: newStatus,
+        }
+      );
+
+    } catch {
+      console.error("Status update failed");
     }
   };
 
+
+  /* =====================================
+     PAGINATION
+  ===================================== */
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const rowsPerPage = 25;
+
+  const totalPages = Math.ceil(students.length / rowsPerPage);
+
+  const indexOfLast = currentPage * rowsPerPage;
+  const indexOfFirst = indexOfLast - rowsPerPage;
+
+  const currentRows =
+    students.slice(indexOfFirst, indexOfLast);
+
+
+  /* =====================================
+     CLICK NAME
+  ===================================== */
+  const handleNameClick = (student) => {
+
+    setSearchQuery(student.email);
+
+    window.scrollTo({
+      top: document.body.scrollHeight,
+      behavior: "smooth",
+    });
+  };
+
+  const headerCellStyle = {
+    color: "white",
+    textAlign: "center",
+    fontSize: "12px",
+    border: `2px solid ${borderColor}`,
+  };
+
+  const paginationButtonStyle = {
+    minWidth: 70,
+    color: "white",
+    borderColor: "white",
+    backgroundColor: "transparent",
+    "&:hover": {
+      borderColor: "white",
+      backgroundColor: "rgba(255,255,255,0.1)",
+    },
+    "&.Mui-disabled": {
+      color: "white",
+      borderColor: "white",
+      backgroundColor: "transparent",
+      opacity: 1,
+    },
+  };
+
+  const paginationSelectStyle = {
+    fontSize: "12px",
+    height: 36,
+    color: "white",
+    border: "1px solid white",
+    backgroundColor: "transparent",
+    ".MuiOutlinedInput-notchedOutline": {
+      borderColor: "white",
+    },
+    "& svg": {
+      color: "white",
+    },
+  };
+
+
+  /* =====================================
+     DATE FORMAT
+  ===================================== */
+  const formatDate = (date) => {
+
+    if (!date) return "";
+
+    return new Date(date).toLocaleDateString(
+      "en-US",
+      { year: "numeric", month: "long", day: "numeric" }
+    );
+  };
+
+
+  /* =====================================
+     GUARDS
+  ===================================== */
   if (loading || hasAccess === null) {
-    return <LoadingOverlay open={loading} message="Checking Access..." />;
+    return <LoadingOverlay open={loading} message="Loading..." />;
   }
-  
+
   if (!hasAccess) {
     return <Unauthorized />;
   }
 
+
+  /* =====================================
+     STYLES
+  ===================================== */
+  const headerStyle = {
+    textAlign: "center",
+    fontSize: "12px",
+    border: `2px solid ${borderColor}`,
+  };
+
+
+  /* =====================================
+     RENDER
+  ===================================== */
   return (
-       <Box sx={{ height: "calc(100vh - 150px)", overflowY: "auto", paddingRight: 1, backgroundColor: "transparent", mt: 1, padding: 2 }}>
-      {/* Header */}
+    <Box sx={{ p: 2 }}>
+
+      {/* HEADER */}
       <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          mb: 2,
-        }}
+        display="flex"
+        justifyContent="space-between"
+        mb={2}
+        flexWrap="wrap"
       >
         <Typography
           variant="h4"
-          sx={{
-            fontWeight: "bold",
-            color: titleColor,
-            fontSize: "36px",
-          }}
+          fontWeight="bold"
+          color={titleColor}
         >
           STUDENT RESET PASSWORD
         </Typography>
 
         <TextField
           size="small"
-          placeholder="Search Student Number / Name / Email Address"
+          placeholder="Search Student / Email / Name"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           sx={{
@@ -225,68 +387,281 @@ const SuperAdminStudentResetPassword = () => {
         />
       </Box>
 
-      {searchError && <Typography color="error">{searchError}</Typography>}
-      <hr style={{ border: "1px solid #ccc", width: "100%" }} />
-      <br />
 
-      {/* Info Panel */}
-      <Paper sx={{ p: 3, border: `2px solid ${borderColor}`, }}>
-        <Box display="grid" gridTemplateColumns={{ xs: "1fr", sm: "1fr 1fr" }} gap={2}>
+      {searchError &&
+        <Typography color="error">{searchError}</Typography>
+      }
+
+      <hr />
+      <br />
+      {/* ================= TABLE ================= */}
+
+      <TableContainer component={Paper}>
+
+        <Table size="small">
+
+          <TableHead>
+
+            {/* PAGINATION BAR */}
+            <TableRow>
+              <TableCell
+                colSpan={5}
+                sx={{
+                  border: `2px solid ${borderColor}`,
+                  py: 0.5,
+                  backgroundColor: settings?.header_color || "#1976d2",
+                  color: "white",
+                }}
+              >
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+
+                  {/* LEFT: TOTAL COUNT */}
+                  <Typography fontSize="14px" fontWeight="bold" color="white">
+                    Total Students: {students.length}
+                  </Typography>
+
+                  {/* RIGHT: PAGINATION CONTROLS */}
+                  <Box display="flex" alignItems="center" gap={1}>
+
+                    {/* FIRST */}
+                    <Button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      variant="outlined"
+                      size="small"
+                      sx={paginationButtonStyle}
+                    >
+                      First
+                    </Button>
+
+                    {/* PREV */}
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      variant="outlined"
+                      size="small"
+                      sx={paginationButtonStyle}
+                    >
+                      Prev
+                    </Button>
+
+                    {/* PAGE DROPDOWN */}
+                    <FormControl size="small" sx={{ minWidth: 90 }}>
+                      <Select
+                        value={currentPage}
+                        onChange={(e) => setCurrentPage(Number(e.target.value))}
+                        sx={paginationSelectStyle}
+                        MenuProps={{
+                          PaperProps: { sx: { maxHeight: 200 } }
+                        }}
+                      >
+                        {Array.from({ length: totalPages }, (_, i) => (
+                          <MenuItem key={i + 1} value={i + 1}>
+                            Page {i + 1}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <Typography fontSize="12px" color="white">
+                      of {totalPages} page{totalPages > 1 ? "s" : ""}
+                    </Typography>
+
+                    {/* NEXT */}
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      variant="outlined"
+                      size="small"
+                      sx={paginationButtonStyle}
+                    >
+                      Next
+                    </Button>
+
+                    {/* LAST */}
+                    <Button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      variant="outlined"
+                      size="small"
+                      sx={paginationButtonStyle}
+                    >
+                      Last
+                    </Button>
+                  </Box>
+                </Box>
+              </TableCell>
+            </TableRow>
+
+            {/* COLUMNS */}
+            <TableRow 
+            >
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>#</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>Student No.</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>Full Name</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>Birthday</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>Email</TableCell>
+            </TableRow>
+
+          </TableHead>
+
+
+          <TableBody>
+
+            {currentRows.length === 0 ? (
+
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  No students found
+                </TableCell>
+              </TableRow>
+
+            ) : (
+
+              currentRows.map((s, i) => (
+
+                <TableRow key={i}>
+
+                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                    {indexOfFirst + i + 1}
+                  </TableCell>
+
+                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                    {s.student_number}
+                  </TableCell>
+
+                  <TableCell
+                    align="left"
+                    sx={{
+                      border: `1px solid ${borderColor}`,
+                      color: "#1976d2",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                      "&:hover": {
+                        textDecoration: "underline",
+                      },
+                    }}
+                  >
+                    {s.fullName}
+                  </TableCell>
+
+                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                    {formatDate(s.birthdate)}
+                  </TableCell>
+
+                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                    {s.email}
+                  </TableCell>
+
+                </TableRow>
+              ))
+            )}
+
+          </TableBody>
+
+        </Table>
+
+      </TableContainer>
+
+
+      <TableContainer component={Paper} sx={{ width: '100%', border: `2px solid ${borderColor}`, }}>
+        <Table>
+          <TableHead sx={{ backgroundColor: settings?.header_color || "#1976d2", }}>
+            <TableRow>
+              <TableCell sx={{ color: 'white', textAlign: "Center" }}>Student Information</TableCell>
+            </TableRow>
+          </TableHead>
+        </Table>
+      </TableContainer>
+
+
+      <Paper sx={{ p: 3, border: `2px solid ${borderColor}` }}>
+
+        <Box
+          display="grid"
+          gridTemplateColumns="1fr 1fr"
+          gap={2}
+        >
+
           <TextField
             label="Student Number"
-            value={userInfo ? userInfo.student_number : ""}
-            fullWidth
+            value={userInfo?.student_number || ""}
             InputProps={{ readOnly: true }}
           />
+
           <TextField
-            label="Email Address"
-            value={userInfo ? userInfo.email : ""}
-            fullWidth
+            label="Email"
+            value={userInfo?.email || ""}
             InputProps={{ readOnly: true }}
           />
+
           <TextField
             label="Full Name"
-            value={userInfo ? userInfo.fullName : ""}
-            fullWidth
+            value={userInfo?.fullName || ""}
             InputProps={{ readOnly: true }}
           />
+
           <TextField
             label="Birthdate"
             type="date"
-            value={userInfo ? userInfo.birthdate : ""}
-            fullWidth
+            value={userInfo?.birthdate || ""}
             InputLabelProps={{ shrink: true }}
             InputProps={{ readOnly: true }}
           />
+
           <TextField
             select
             label="Status"
-            value={userInfo ? userInfo.status ?? "" : ""}
-            fullWidth
+            value={userInfo?.status ?? ""}
             onChange={handleStatusChange}
           >
             <MenuItem value={1}>Active</MenuItem>
             <MenuItem value={0}>Inactive</MenuItem>
           </TextField>
+
         </Box>
 
+
         <Box mt={3}>
+
           <Button
             variant="contained"
-            style={{ backgroundColor: mainButtonColor, color: "white" }}
-            onClick={handleReset}
+            style={{
+              backgroundColor: mainButtonColor,
+              color: "white",
+            }}
             disabled={!userInfo || loading}
+            onClick={handleReset}
           >
             {loading ? "Processing..." : "Reset Password"}
           </Button>
+
         </Box>
+
       </Paper>
 
-      {resetMsg && (
-        <Typography sx={{ mt: 2 }} color="green">
-          {resetMsg}
-        </Typography>
-      )}
+
+      {/* ================= SNACKBAR ================= */}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        onClose={() =>
+          setSnackbar(p => ({ ...p, open: false }))
+        }
+      >
+        <Alert
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+          onClose={() =>
+            setSnackbar(p => ({ ...p, open: false }))
+          }
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
     </Box>
   );
 };
