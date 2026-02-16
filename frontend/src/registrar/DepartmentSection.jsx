@@ -228,8 +228,18 @@ const DepartmentSection = () => {
     }
   };
 
+  const formatSchoolYear = (yearDesc) => {
+    if (!yearDesc) return "";
+    const startYear = Number(yearDesc);
+    if (isNaN(startYear)) return yearDesc;
+    return `${startYear} - ${startYear + 1}`;
+  };
+
+
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50; // number of rows per page
+
 
   // total pages based on filteredDepartmentSections
   const totalPages = Math.ceil(filteredDepartmentSections.length / itemsPerPage);
@@ -308,7 +318,7 @@ const DepartmentSection = () => {
 
       <br />
 
-      <TableContainer component={Paper} sx={{ width: '100%', border: `2px solid ${borderColor}`, mb: "40px"}}>
+      <TableContainer component={Paper} sx={{ width: '100%', border: `2px solid ${borderColor}`, mb: "40px" }}>
         <Table>
           <TableHead sx={{ backgroundColor: settings?.header_color || "#1976d2", }}>
             <TableRow>
@@ -331,7 +341,7 @@ const DepartmentSection = () => {
           sx={{
             flex: 1,        // <-- make it take more space
             p: 3,
-         
+
             boxShadow: 2,
             border: `2px solid ${borderColor}`,
             bgcolor: 'white',
@@ -356,7 +366,14 @@ const DepartmentSection = () => {
               <MenuItem value="">Select Curriculum</MenuItem>
               {curriculumList.map((curr) => (
                 <MenuItem key={`curr-${curr.curriculum_id}`} value={curr.curriculum_id}>
-                  {curr.year_description} ({curr.program_code}) - {curr.program_description} ({curr.major})
+                  {formatSchoolYear(curr.year_description)}:{" "}
+                  {`(${curr.program_code}): ${curr.program_description}${curr.major ? ` (${curr.major})` : ""
+                    } (${Number(curr.components) === 1
+                      ? "Manila Campus"
+                      : Number(curr.components) === 2
+                        ? "Cavite Campus"
+                        : "—"
+                    })`}
                 </MenuItem>
               ))}
             </Select>
@@ -419,7 +436,7 @@ const DepartmentSection = () => {
           sx={{
             flex: 2,        // <-- smaller
             p: 3,
-           
+
             boxShadow: 2,
             bgcolor: 'white',
             border: `2px solid ${borderColor}`,

@@ -19,6 +19,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Card,
 } from "@mui/material";
 import { Snackbar, Alert } from "@mui/material";
 
@@ -28,26 +29,53 @@ import Unauthorized from "../components/Unauthorized";
 import LoadingOverlay from "../components/LoadingOverlay";
 
 import API_BASE_URL from "../apiConfig";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  People,
+  School,
+  SupervisorAccount,
+  AdminPanelSettings,
+
+} from "@mui/icons-material";
 
 
 const SuperAdminStudentResetPassword = () => {
-
-  /* =====================================
-     SETTINGS
-  ===================================== */
   const settings = useContext(SettingsContext);
 
-  const [titleColor, setTitleColor] = useState("#000");
-  const [borderColor, setBorderColor] = useState("#000");
+  const [titleColor, setTitleColor] = useState("#000000");
+  const [subtitleColor, setSubtitleColor] = useState("#555555");
+  const [borderColor, setBorderColor] = useState("#000000");
   const [mainButtonColor, setMainButtonColor] = useState("#1976d2");
+  const [subButtonColor, setSubButtonColor] = useState("#ffffff");   // ✅ NEW
+  const [stepperColor, setStepperColor] = useState("#000000");       // ✅ NEW
 
+  const [fetchedLogo, setFetchedLogo] = useState(null);
+  const [companyName, setCompanyName] = useState("");
+  const [shortTerm, setShortTerm] = useState("");
+  const [campusAddress, setCampusAddress] = useState("");
 
   useEffect(() => {
     if (!settings) return;
 
+    // 🎨 Colors
     if (settings.title_color) setTitleColor(settings.title_color);
+    if (settings.subtitle_color) setSubtitleColor(settings.subtitle_color);
     if (settings.border_color) setBorderColor(settings.border_color);
     if (settings.main_button_color) setMainButtonColor(settings.main_button_color);
+    if (settings.sub_button_color) setSubButtonColor(settings.sub_button_color);   // ✅ NEW
+    if (settings.stepper_color) setStepperColor(settings.stepper_color);           // ✅ NEW
+
+    // 🏫 Logo
+    if (settings.logo_url) {
+      setFetchedLogo(`${API_BASE_URL}${settings.logo_url}`);
+    } else {
+      setFetchedLogo(EaristLogo);
+    }
+
+    // 🏷️ School Information
+    if (settings.company_name) setCompanyName(settings.company_name);
+    if (settings.short_term) setShortTerm(settings.short_term);
+    if (settings.campus_address) setCampusAddress(settings.campus_address);
 
   }, [settings]);
 
@@ -90,6 +118,24 @@ const SuperAdminStudentResetPassword = () => {
     } catch {
       setHasAccess(false);
     }
+  };
+
+  const tabs = [
+    { label: "Applicant Reset Password", to: "/superadmin_applicant_reset_password", icon: <People fontSize="large" /> },
+    { label: "Student Reset Password", to: "/superadmin_student_reset_password", icon: <School fontSize="large" /> },
+    { label: "Faculty Reset Password", to: "/superadmin_faculty_reset_password", icon: <SupervisorAccount fontSize="large" /> },
+    { label: "Registrar Reset Password", to: "/superadmin_registrar_reset_password", icon: <AdminPanelSettings fontSize="large" /> },
+  ];
+
+
+  const navigate = useNavigate();
+  const [activeStep, setActiveStep] = useState(1);
+  const [clickedSteps, setClickedSteps] = useState(Array(tabs.length).fill(false));
+
+
+  const handleStepClick = (index, to) => {
+    setActiveStep(index);
+    navigate(to); // this will actually change the page
   };
 
 
@@ -263,14 +309,18 @@ const SuperAdminStudentResetPassword = () => {
      CLICK NAME
   ===================================== */
   const handleNameClick = (student) => {
-
+    // You can search by email (safest because it's unique)
     setSearchQuery(student.email);
 
+    // Optional: scroll to info panel
     window.scrollTo({
       top: document.body.scrollHeight,
       behavior: "smooth",
     });
   };
+
+
+
 
   const headerCellStyle = {
     color: "white",
@@ -300,7 +350,7 @@ const SuperAdminStudentResetPassword = () => {
     fontSize: "12px",
     height: 36,
     color: "white",
-    border: "1px solid white",
+    border: "2px solid white",
     backgroundColor: "transparent",
     ".MuiOutlinedInput-notchedOutline": {
       borderColor: "white",
@@ -351,14 +401,18 @@ const SuperAdminStudentResetPassword = () => {
      RENDER
   ===================================== */
   return (
-    <Box sx={{ p: 2 }}>
-
-      {/* HEADER */}
+    <Box sx={{ height: "calc(100vh - 150px)", overflowY: "auto", paddingRight: 1, backgroundColor: "transparent", mt: 1, padding: 2 }}>
+      {/* Header */}
       <Box
-        display="flex"
-        justifyContent="space-between"
-        mb={2}
-        flexWrap="wrap"
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+
+          mb: 2,
+
+        }}
       >
         <Typography
           variant="h4"
@@ -394,7 +448,126 @@ const SuperAdminStudentResetPassword = () => {
 
       <hr />
       <br />
-      {/* ================= TABLE ================= */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          flexWrap: "nowrap", // ❌ prevent wrapping
+          width: "100%",
+          mt: 1,
+          gap: 2,
+        }}
+      >
+        {tabs.map((tab, index) => (
+          <Card
+            key={index}
+            onClick={() => handleStepClick(index, tab.to)}
+            sx={{
+              flex: `1 1 ${100 / tabs.length}%`, // evenly divide row
+              height: 135,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              borderRadius: 2,
+              border: `2px solid ${borderColor}`,
+              backgroundColor: activeStep === index ? settings?.header_color || "#1976d2" : "#E8C999",
+              color: activeStep === index ? "#fff" : "#000",
+              boxShadow:
+                activeStep === index
+                  ? "0px 4px 10px rgba(0,0,0,0.3)"
+                  : "0px 2px 6px rgba(0,0,0,0.15)",
+              transition: "0.3s ease",
+              "&:hover": {
+                backgroundColor: activeStep === index ? "#000000" : "#f5d98f",
+              },
+            }}
+          >
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <Box sx={{ fontSize: 40, mb: 1 }}>{tab.icon}</Box>
+              <Typography sx={{ fontSize: 14, fontWeight: "bold", textAlign: "center" }}>
+                {tab.label}
+              </Typography>
+            </Box>
+          </Card>
+        ))}
+      </Box>
+      <br />
+      <TableContainer component={Paper} sx={{ width: '100%', border: `2px solid ${borderColor}`, }}>
+        <Table>
+          <TableHead sx={{ backgroundColor: settings?.header_color || "#1976d2", }}>
+            <TableRow>
+              <TableCell sx={{ color: 'white', textAlign: "Center" }}>Student Information</TableCell>
+            </TableRow>
+          </TableHead>
+        </Table>
+      </TableContainer>
+
+
+      <Paper sx={{ p: 3, border: `2px solid ${borderColor}` }}>
+
+        <Box
+          display="grid"
+          gridTemplateColumns="1fr 1fr"
+          gap={2}
+        >
+
+          <TextField
+            label="Student Number"
+            value={userInfo?.student_number || ""}
+            InputProps={{ readOnly: true }}
+          />
+
+          <TextField
+            label="Email"
+            value={userInfo?.email || ""}
+            InputProps={{ readOnly: true }}
+          />
+
+          <TextField
+            label="Full Name"
+            value={userInfo?.fullName || ""}
+            InputProps={{ readOnly: true }}
+          />
+
+          <TextField
+            label="Birthdate"
+            type="date"
+            value={userInfo?.birthdate || ""}
+            InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: true }}
+          />
+
+          <TextField
+            select
+            label="Status"
+            value={userInfo?.status ?? ""}
+            onChange={handleStatusChange}
+          >
+            <MenuItem value={1}>Active</MenuItem>
+            <MenuItem value={0}>Inactive</MenuItem>
+          </TextField>
+
+        </Box>
+
+
+        <Box mt={3}>
+
+          <Button
+            variant="contained"
+            style={{
+              backgroundColor: mainButtonColor,
+              color: "white",
+            }}
+            disabled={!userInfo || loading}
+            onClick={handleReset}
+          >
+            {loading ? "Processing..." : "Reset Password"}
+          </Button>
+
+        </Box>
+
+      </Paper>
 
       <TableContainer component={Paper}>
 
@@ -405,7 +578,7 @@ const SuperAdminStudentResetPassword = () => {
             {/* PAGINATION BAR */}
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={6}
                 sx={{
                   border: `2px solid ${borderColor}`,
                   py: 0.5,
@@ -494,13 +667,14 @@ const SuperAdminStudentResetPassword = () => {
             </TableRow>
 
             {/* COLUMNS */}
-            <TableRow 
+            <TableRow
             >
-              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>#</TableCell>
-              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>Student No.</TableCell>
-              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>Full Name</TableCell>
-              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>Birthday</TableCell>
-              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black"}}>Email</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>#</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Student No.</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Full Name</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Birthday</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Email</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Status</TableCell>
             </TableRow>
 
           </TableHead>
@@ -522,35 +696,48 @@ const SuperAdminStudentResetPassword = () => {
 
                 <TableRow key={i}>
 
-                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                  <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>
                     {indexOfFirst + i + 1}
                   </TableCell>
 
-                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                  <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>
                     {s.student_number}
                   </TableCell>
 
                   <TableCell
                     align="left"
                     sx={{
-                      border: `1px solid ${borderColor}`,
-                      color: "#1976d2",
+                      border: `2px solid ${borderColor}`,
+                      color: "blue",
                       cursor: "pointer",
+
                       fontWeight: 500,
                       "&:hover": {
                         textDecoration: "underline",
                       },
                     }}
+                    onClick={() => handleNameClick(s)}
                   >
                     {s.fullName}
                   </TableCell>
 
-                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                  <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>
                     {formatDate(s.birthdate)}
                   </TableCell>
 
-                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                  <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>
                     {s.email}
+                  </TableCell>
+
+
+                  <TableCell align="center"
+                    sx={{
+                      border: `2px solid ${borderColor}`,
+                      fontWeight: "bold",
+                      color: s.status === 0 ? "green" : "red",
+                    }}
+                  >
+                    {s.status === 0 ? "Active" : "Inactive"}
                   </TableCell>
 
                 </TableRow>
@@ -564,81 +751,7 @@ const SuperAdminStudentResetPassword = () => {
       </TableContainer>
 
 
-      <TableContainer component={Paper} sx={{ width: '100%', border: `2px solid ${borderColor}`, }}>
-        <Table>
-          <TableHead sx={{ backgroundColor: settings?.header_color || "#1976d2", }}>
-            <TableRow>
-              <TableCell sx={{ color: 'white', textAlign: "Center" }}>Student Information</TableCell>
-            </TableRow>
-          </TableHead>
-        </Table>
-      </TableContainer>
 
-
-      <Paper sx={{ p: 3, border: `2px solid ${borderColor}` }}>
-
-        <Box
-          display="grid"
-          gridTemplateColumns="1fr 1fr"
-          gap={2}
-        >
-
-          <TextField
-            label="Student Number"
-            value={userInfo?.student_number || ""}
-            InputProps={{ readOnly: true }}
-          />
-
-          <TextField
-            label="Email"
-            value={userInfo?.email || ""}
-            InputProps={{ readOnly: true }}
-          />
-
-          <TextField
-            label="Full Name"
-            value={userInfo?.fullName || ""}
-            InputProps={{ readOnly: true }}
-          />
-
-          <TextField
-            label="Birthdate"
-            type="date"
-            value={userInfo?.birthdate || ""}
-            InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: true }}
-          />
-
-          <TextField
-            select
-            label="Status"
-            value={userInfo?.status ?? ""}
-            onChange={handleStatusChange}
-          >
-            <MenuItem value={1}>Active</MenuItem>
-            <MenuItem value={0}>Inactive</MenuItem>
-          </TextField>
-
-        </Box>
-
-
-        <Box mt={3}>
-
-          <Button
-            variant="contained"
-            style={{
-              backgroundColor: mainButtonColor,
-              color: "white",
-            }}
-            disabled={!userInfo || loading}
-            onClick={handleReset}
-          >
-            {loading ? "Processing..." : "Reset Password"}
-          </Button>
-
-        </Box>
-
-      </Paper>
 
 
       {/* ================= SNACKBAR ================= */}

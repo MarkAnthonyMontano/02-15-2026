@@ -39,7 +39,7 @@ const allowedOrigins = [
   'http://192.168.50.98:5173',
   'http://192.168.50.211:5173',
   'http://136.239.248.58:5173',
-  'http://192.168.1.5:5173',
+  'http://192.168.50.43:5173',
 ];
 
 app.use(
@@ -94,6 +94,8 @@ const studentPayment = require('./routes/payment/studentScholarship');
 const programRoute = require("./routes/system_routes/programRoute");
 const applicantRoutes = require("./routes/reset_password_routes/applicantresetpasswordRoutes");
 const studentRoutes = require("./routes/reset_password_routes/studentresetpasswordRoutes");
+const facultyRoutes = require("./routes/reset_password_routes/facultyresetpasswordRoutes");
+const registrarRoutes = require("./routes/reset_password_routes/registrarresetpasswordRoutes");
 
 app.use("/", programRoute);
 app.use("/auth/", authRoute);
@@ -115,6 +117,8 @@ app.use("/", qrCodeForStudents);
 app.use("/", studentPayment);
 app.use("/", applicantRoutes);
 app.use("/", studentRoutes);
+app.use("/", facultyRoutes);
+app.use("/", registrarRoutes);
 
 const uploadPath = path.join(__dirname, "uploads");
 
@@ -5778,283 +5782,6 @@ app.post("/login_prof", async (req, res) => {
   }
 });
 
-
-
-
-//REGISTRAR RESET PASSWORD ADMIN 09/06/2025
-// ---------------- Registrar: Get Info ----------------
-// ---------------- Registrar: Get Info ----------------
-app.post("/superadmin-get-registrar", async (req, res) => {
-  const { search } = req.body; // renamed from email → more general
-  if (!search) {
-    return res.status(400).json({ message: "Search input is required" });
-  }
-
-  try {
-    const query = `
-      SELECT employee_id, email, status, first_name, middle_name, last_name
-      FROM user_accounts
-      WHERE role = 'registrar'
-      AND (
-        employee_id LIKE ? OR
-        email LIKE ? OR
-        CONCAT(first_name, ' ', middle_name, ' ', last_name) LIKE ? OR
-        CONCAT(first_name, ' ', last_name) LIKE ?
-      )
-      ORDER BY id DESC
-      LIMIT 1
-    `;
-
-    const likeSearch = `%${search}%`;
-    const [rows] = await db3.query(query, [
-      likeSearch,
-      likeSearch,
-      likeSearch,
-      likeSearch,
-    ]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "Registrar not found" });
-    }
-
-    const user = rows[0];
-    const fullName = [user.first_name, user.middle_name, user.last_name]
-      .filter(Boolean)
-      .join(" ");
-
-    res.json({
-      employee_id: user.employee_id || "N/A",
-      email: user.email,
-      fullName,
-      status: user.status,
-    });
-  } catch (err) {
-    console.error("Error fetching registrar info:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// ---------------- Registrar: Reset Password ----------------
-app.post("/forgot-password-registrar", async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    // 🔍 Check if registrar exists
-    const [rows] = await db3.query(
-      "SELECT email FROM user_accounts WHERE email = ? AND role = 'registrar'",
-      [email],
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "Registrar not found." });
-    }
-
-    // 🔹 Fetch short term from company settings
-    const [settings] = await db.query(
-      "SELECT short_term FROM company_settings WHERE id = 1",
-    );
-    const shortTerm =
-      settings.length > 0 && settings[0].short_term
-        ? settings[0].short_term
-        : "Institution";
-
-    // 🔹 Generate random 8-character uppercase password (A–Z)
-    const newPassword = Array.from({ length: 8 }, () =>
-      String.fromCharCode(Math.floor(Math.random() * 26) + 65),
-    ).join("");
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // 🔹 Update password in user_accounts
-    await db3.query("UPDATE user_accounts SET password = ? WHERE email = ?", [
-      hashedPassword,
-      email,
-    ]);
-
-    // 🔹 Configure email transporter
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    // 🔹 Send standardized email
-    await transporter.sendMail({
-      from: `"${shortTerm} - Information System" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Your Password has Reset",
-      text: `Your new temporary password is: ${newPassword}\n\nPlease change it after logging in.`,
-    });
-
-    res.json({
-      message:
-        "Password reset successfully. Check your email for the new password.",
-    });
-  } catch (error) {
-    console.error("Reset error (registrar):", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// ---------------- Registrar: Update Status ----------------
-app.post("/superadmin-update-status-registrar", async (req, res) => {
-  const { email, status } = req.body;
-  try {
-    const [result] = await db3.query(
-      "UPDATE user_accounts SET status = ? WHERE email = ? AND role = 'registrar'",
-      [status, email],
-    );
-
-    if (result.affectedRows === 0)
-      return res.status(404).json({ message: "Registrar not found" });
-
-    res.json({ message: "Registrar status updated successfully", status });
-  } catch (err) {
-    console.error("Update registrar status error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-//FACULTY RESET PASSWORD ADMIN 09/06/2025
-// ---------------- Faculty: Get Info (Search by Employee ID, Name, or Email) ----------------
-app.post("/superadmin-get-faculty", async (req, res) => {
-  const { search } = req.body;
-
-  try {
-    const [rows] = await db3.query(
-      `
-      SELECT 
-        prof_id,
-        person_id AS employee_id,
-        fname AS first_name,
-        mname AS middle_name,
-        lname AS last_name,
-        email,
-        status
-      FROM prof_table
-      WHERE role = 'faculty'
-      AND (
-        person_id LIKE ? 
-        OR fname LIKE ? 
-        OR mname LIKE ? 
-        OR lname LIKE ? 
-        OR email LIKE ?
-      )
-      LIMIT 1
-      `,
-      Array(5).fill(`%${search}%`),
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "Faculty not found" });
-    }
-
-    const user = rows[0];
-    const fullName = [user.first_name, user.middle_name, user.last_name]
-      .filter(Boolean)
-      .join(" ");
-
-    res.json({
-      employee_id: user.employee_id,
-      email: user.email,
-      fullName,
-      status: user.status ?? 0,
-    });
-  } catch (err) {
-    console.error("Error fetching faculty info:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// ---------------- Faculty: Reset Password ----------------
-// 11/05/2025 UPDATE - RESET FACULTY PASSWORD
-app.post("/superadmin-reset-faculty", async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    // 🔍 Check if faculty exists
-    const [rows] = await db3.query(
-      `SELECT email FROM prof_table WHERE email = ? AND role = 'faculty'`,
-      [email],
-    );
-
-    if (rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Email not found." });
-    }
-
-    // 🔹 Fetch short term from company settings
-    const [settings] = await db.query(
-      "SELECT short_term FROM company_settings WHERE id = 1",
-    );
-    const shortTerm =
-      settings.length > 0 && settings[0].short_term
-        ? settings[0].short_term
-        : "Institution";
-
-    // 🔹 Generate random 8-character uppercase password (A–Z)
-    const newPassword = Array.from({ length: 8 }, () =>
-      String.fromCharCode(Math.floor(Math.random() * 26) + 65),
-    ).join("");
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // 🔹 Update faculty password in DB
-    await db3.query(
-      "UPDATE prof_table SET password = ? WHERE email = ? AND role = 'faculty'",
-      [hashedPassword, email],
-    );
-
-    // 🔹 Configure email transport
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    // 🔹 Send email with institutional short term
-    await transporter.sendMail({
-      from: `"${shortTerm} - Information System" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Your Password hasReset",
-      text: `Your new temporary password is: ${newPassword}\n\nPlease change it after logging in.`,
-    });
-
-    res.json({
-      success: true,
-      message:
-        "Password reset successfully. Check your email for the new password.",
-    });
-  } catch (error) {
-    console.error("Reset error (faculty):", error);
-    res.status(500).json({ success: false, message: "Internal server error." });
-  }
-});
-
-// ---------------- Faculty: Update Status ----------------
-app.post("/superadmin-update-status-faculty", async (req, res) => {
-  const { email, status } = req.body;
-  try {
-    const [result] = await db3.query(
-      `UPDATE prof_table SET status = ? WHERE email = ? AND role = 'faculty'`,
-      [status, email],
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Faculty not found" });
-    }
-
-    res.json({ message: "Faculty status updated successfully", status });
-  } catch (err) {
-    console.error("Update faculty status error:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
 
 // Applicant Change Password
 app.post("/applicant-change-password", async (req, res) => {

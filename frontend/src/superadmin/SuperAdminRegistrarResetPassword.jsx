@@ -9,10 +9,32 @@ import {
   Paper,
   MenuItem,
 } from "@mui/material";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  FormControl,
+  Select,
+  Card
+} from "@mui/material";
+import { Snackbar, Alert } from "@mui/material";
+
 import SearchIcon from "@mui/icons-material/Search";
 import Unauthorized from "../components/Unauthorized";
 import LoadingOverlay from "../components/LoadingOverlay";
 import API_BASE_URL from "../apiConfig";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  People,
+  School,
+  SupervisorAccount,
+  AdminPanelSettings,
+
+} from "@mui/icons-material";
+
 const SuperAdminRegistrarResetPassword = () => {
   const settings = useContext(SettingsContext);
 
@@ -62,7 +84,6 @@ const SuperAdminRegistrarResetPassword = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [resetMsg, setResetMsg] = useState("");
   const [searchError, setSearchError] = useState("");
   const pageId = 83;
 
@@ -113,6 +134,60 @@ const SuperAdminRegistrarResetPassword = () => {
     }
   };
 
+  const tabs = [
+    { label: "Applicant Reset Password", to: "/superadmin_applicant_reset_password", icon: <People fontSize="large" /> },
+    { label: "Student Reset Password", to: "/superadmin_student_reset_password", icon: <School fontSize="large" /> },
+    { label: "Faculty Reset Password", to: "/superadmin_faculty_reset_password", icon: <SupervisorAccount fontSize="large" /> },
+    { label: "Registrar Reset Password", to: "/superadmin_registrar_reset_password", icon: <AdminPanelSettings fontSize="large" /> },
+  ];
+
+
+  const navigate = useNavigate();
+  const [activeStep, setActiveStep] = useState(3);
+  const [clickedSteps, setClickedSteps] = useState(Array(tabs.length).fill(false));
+
+
+  const handleStepClick = (index, to) => {
+    setActiveStep(index);
+    navigate(to); // this will actually change the page
+  };
+
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+  });
+
+  const [registrars, setRegistrars] = useState([]);
+
+  useEffect(() => {
+    const fetchRegistrars = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get(`${API_BASE_URL}/superadmin-get-all-registrar`);
+        setRegistrars(res.data);
+      } catch (err) {
+        console.error("Failed to fetch registrars", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRegistrars();
+  }, []);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 25;
+
+  const totalPages = Math.ceil(registrars.length / rowsPerPage);
+  const indexOfLastRow = currentPage * rowsPerPage;
+  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
+  const currentRows = registrars.slice(indexOfFirstRow, indexOfLastRow);
+
+  const handleNameClick = (r) => {
+    setSearchQuery(r.employee_id); // or r.email if backend supports
+    setUserInfo(r); // 🔥 instantly fill panel without waiting backend
+  };
 
   useEffect(() => {
     const fetchInfo = async () => {
@@ -144,20 +219,32 @@ const SuperAdminRegistrarResetPassword = () => {
     return () => clearTimeout(delayDebounce);
   }, [searchQuery]);
 
+
+
   const handleReset = async () => {
     if (!userInfo) return;
 
-    setSearchLoading(true);  // ✅ use searchLoading
+    setSearchLoading(true);
     try {
       const res = await axios.post(
         `${API_BASE_URL}/forgot-password-registrar`,
         { email: userInfo.email }
       );
-      setResetMsg(res.data.message);
+
+      setSnackbar({
+        open: true,
+        message: res.data.message,
+        severity: "success",
+      });
+
     } catch (err) {
-      setSearchError(err.response?.data?.message || "Error resetting password");
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || "Error resetting password",
+        severity: "error",
+      });
     } finally {
-      setSearchLoading(false);  // ✅ use searchLoading
+      setSearchLoading(false);
     }
   };
 
@@ -180,45 +267,91 @@ const SuperAdminRegistrarResetPassword = () => {
     }
   };
 
-  // 🔒 Disable right-click
-  document.addEventListener("contextmenu", (e) => e.preventDefault());
 
-  // 🔒 Block DevTools + Ctrl+P
-  document.addEventListener("keydown", (e) => {
-    const isBlockedKey =
-      e.key === "F12" ||
-      e.key === "F11" ||
-      (e.ctrlKey &&
-        e.shiftKey &&
-        (e.key.toLowerCase() === "i" || e.key.toLowerCase() === "j")) ||
-      (e.ctrlKey && e.key.toLowerCase() === "u") ||
-      (e.ctrlKey && e.key.toLowerCase() === "p");
+  /* =====================================
+     DATE FORMAT
+  ===================================== */
+  const formatDate = (date) => {
 
-    if (isBlockedKey) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  });
+    if (!date) return "";
+
+    return new Date(date).toLocaleDateString(
+      "en-US",
+      { year: "numeric", month: "long", day: "numeric" }
+    );
+  };
+
+
+  // ================= STYLES =================
+  const headerCellStyle = {
+    color: "white",
+    textAlign: "center",
+    fontSize: "12px",
+    border: `2px solid ${borderColor}`,
+  };
+
+
+
+  const headerStyle = {
+    textAlign: "center",
+    fontSize: "12px",
+    border: `2px solid ${borderColor}`,
+  };
+
+  const paginationSelectStyle = {
+    fontSize: "12px",
+    height: 36,
+    color: "white",
+    border: "2px solid white",
+    backgroundColor: "transparent",
+    ".MuiOutlinedInput-notchedOutline": {
+      borderColor: "white",
+    },
+    "& svg": {
+      color: "white",
+    },
+  };
+
+
+  const paginationButtonStyle = {
+    minWidth: 70,
+    color: "white",
+    borderColor: "white",
+    backgroundColor: "transparent",
+    "&:hover": {
+      borderColor: "white",
+      backgroundColor: "rgba(255,255,255,0.1)",
+    },
+    "&.Mui-disabled": {
+      color: "white",
+      borderColor: "white",
+      backgroundColor: "transparent",
+      opacity: 1,
+    },
+  };
+
 
   if (loading || hasAccess === null) {
     return <LoadingOverlay open={loading} message="Checking Access..." />;
   }
-  
+
   if (!hasAccess) {
     return <Unauthorized />;
   }
 
   // ✅ Main Component
   return (
-       <Box sx={{ height: "calc(100vh - 150px)", overflowY: "auto", paddingRight: 1, backgroundColor: "transparent", mt: 1, padding: 2 }}>
-      {/* Header Section */}
+    <Box sx={{ height: "calc(100vh - 150px)", overflowY: "auto", paddingRight: 1, backgroundColor: "transparent", mt: 1, padding: 2 }}>
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap",
+
           mb: 2,
+
         }}
       >
         <Typography
@@ -249,11 +382,64 @@ const SuperAdminRegistrarResetPassword = () => {
       </Box>
 
       {searchError && <Typography color="error">{searchError}</Typography>}
-      <hr style={{ border: `2px solid ${borderColor}`, width: "100%" }} />
+      <hr />
+      <br />
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          flexWrap: "nowrap", // ❌ prevent wrapping
+          width: "100%",
+          mt: 1,
+          gap: 2,
+        }}
+      >
+        {tabs.map((tab, index) => (
+          <Card
+            key={index}
+            onClick={() => handleStepClick(index, tab.to)}
+            sx={{
+              flex: `1 1 ${100 / tabs.length}%`, // evenly divide row
+              height: 135,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              borderRadius: 2,
+              border: `2px solid ${borderColor}`,
+              backgroundColor: activeStep === index ? settings?.header_color || "#1976d2" : "#E8C999",
+              color: activeStep === index ? "#fff" : "#000",
+              boxShadow:
+                activeStep === index
+                  ? "0px 4px 10px rgba(0,0,0,0.3)"
+                  : "0px 2px 6px rgba(0,0,0,0.15)",
+              transition: "0.3s ease",
+              "&:hover": {
+                backgroundColor: activeStep === index ? "#000000" : "#f5d98f",
+              },
+            }}
+          >
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <Box sx={{ fontSize: 40, mb: 1 }}>{tab.icon}</Box>
+              <Typography sx={{ fontSize: 14, fontWeight: "bold", textAlign: "center" }}>
+                {tab.label}
+              </Typography>
+            </Box>
+          </Card>
+        ))}
+      </Box>
       <br />
 
-      {/* Registrar Information */}
-      <Paper sx={{ p: 3, border: "2px solid maroon" }}>
+      <TableContainer component={Paper} sx={{ width: '100%', border: `2px solid ${borderColor}`, }}>
+        <Table>
+          <TableHead sx={{ backgroundColor: settings?.header_color || "#1976d2", }}>
+            <TableRow>
+              <TableCell sx={{ color: 'white', textAlign: "Center" }}>Registrar Information</TableCell>
+            </TableRow>
+          </TableHead>
+        </Table>
+      </TableContainer>
+      <Paper sx={{ p: 3, border: `2px solid ${borderColor}` }}>
         <Box
           display="grid"
           gridTemplateColumns={{ xs: "1fr", sm: "1fr 1fr" }}
@@ -302,11 +488,163 @@ const SuperAdminRegistrarResetPassword = () => {
         </Box>
       </Paper>
 
-      {resetMsg && (
-        <Typography sx={{ mt: 2 }} color="green">
-          {resetMsg}
-        </Typography>
-      )}
+      <TableContainer component={Paper} sx={{ width: "100%" }}>
+        <Table size="small">
+
+          {/* 🔥 TOP HEADER (Pagination + Total) */}
+          <TableHead>
+            <TableRow>
+              <TableCell
+                colSpan={6}
+                sx={{
+                  border: `2px solid ${borderColor}`,
+                  py: 0.5,
+                  backgroundColor: settings?.header_color || "#1976d2",
+                  color: "white",
+                }}
+              >
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+
+                  {/* LEFT: TOTAL COUNT */}
+                  <Typography fontSize="14px" fontWeight="bold" color="white">
+                    Total Registrars: {registrars.length}
+                  </Typography>
+
+                  {/* RIGHT: PAGINATION CONTROLS */}
+                  <Box display="flex" alignItems="center" gap={1}>
+
+                    {/* FIRST */}
+                    <Button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      variant="outlined"
+                      size="small"
+                      sx={paginationButtonStyle}
+                    >
+                      First
+                    </Button>
+
+                    {/* PREV */}
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      variant="outlined"
+                      size="small"
+                      sx={paginationButtonStyle}
+                    >
+                      Prev
+                    </Button>
+
+                    {/* PAGE DROPDOWN */}
+                    <FormControl size="small" sx={{ minWidth: 90 }}>
+                      <Select
+                        value={currentPage}
+                        onChange={(e) => setCurrentPage(Number(e.target.value))}
+                        sx={paginationSelectStyle}
+                        MenuProps={{
+                          PaperProps: { sx: { maxHeight: 200 } }
+                        }}
+                      >
+                        {Array.from({ length: totalPages }, (_, i) => (
+                          <MenuItem key={i + 1} value={i + 1}>
+                            Page {i + 1}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <Typography fontSize="12px" color="white">
+                      of {totalPages} page{totalPages > 1 ? "s" : ""}
+                    </Typography>
+
+                    {/* NEXT */}
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      variant="outlined"
+                      size="small"
+                      sx={paginationButtonStyle}
+                    >
+                      Next
+                    </Button>
+
+                    {/* LAST */}
+                    <Button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      variant="outlined"
+                      size="small"
+                      sx={paginationButtonStyle}
+                    >
+                      Last
+                    </Button>
+                  </Box>
+                </Box>
+              </TableCell>
+            </TableRow>
+
+            <TableRow>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>#</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Employee ID</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Full Name</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Email</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Status</TableCell>
+            </TableRow>
+          </TableHead>
+
+          {/* BODY */}
+          <TableBody>
+            {currentRows.map((r, index) => (
+              <TableRow key={index}>
+                <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>{indexOfFirstRow + index + 1}</TableCell>
+
+                <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>{r.employee_id}</TableCell>
+
+                <TableCell
+                  sx={{
+                    border: `2px solid ${borderColor}`,
+                    color: "blue",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    "&:hover": {
+                      textDecoration: "underline",
+                    },
+                  }}
+                  onClick={() => handleNameClick(r)}
+                >
+                  {r.fullName}
+                </TableCell>
+
+                <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>{r.email}</TableCell>
+
+                <TableCell
+                  sx={{
+                    border: `2px solid ${borderColor}`,
+                    fontWeight: "bold",
+                    color: r.status === 1 ? "green" : "red",
+                    textAlign: "center"
+                  }}
+                >
+                  {r.status === 1 ? "Active" : "Inactive"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
     </Box>
   );
 };

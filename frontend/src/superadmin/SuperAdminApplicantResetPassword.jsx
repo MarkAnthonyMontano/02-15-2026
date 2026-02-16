@@ -17,17 +17,26 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  Card,
   TableRow,
 } from "@mui/material";
 import { Snackbar, Alert } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import Unauthorized from "../components/Unauthorized";
 import LoadingOverlay from "../components/LoadingOverlay";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  People,
+  School,
+  SupervisorAccount,
+  AdminPanelSettings,
+
+} from "@mui/icons-material";
+
 
 import API_BASE_URL from "../apiConfig";
 
 const SuperAdminApplicantResetPassword = () => {
-
 
   const settings = useContext(SettingsContext);
 
@@ -73,6 +82,24 @@ const SuperAdminApplicantResetPassword = () => {
     message: "",
     severity: "success", // success | error | warning | info
   });
+
+  const tabs = [
+    { label: "Applicant Reset Password", to: "/superadmin_applicant_reset_password", icon: <People fontSize="large" /> },
+    { label: "Student Reset Password", to: "/superadmin_student_reset_password", icon: <School fontSize="large" /> },
+    { label: "Faculty Reset Password", to: "/superadmin_faculty_reset_password", icon: <SupervisorAccount fontSize="large" /> },
+    { label: "Registrar Reset Password", to: "/superadmin_registrar_reset_password", icon: <AdminPanelSettings fontSize="large" /> },
+  ];
+
+
+  const navigate = useNavigate();
+  const [activeStep, setActiveStep] = useState(0);
+  const [clickedSteps, setClickedSteps] = useState(Array(tabs.length).fill(false));
+
+
+  const handleStepClick = (index, to) => {
+    setActiveStep(index);
+    navigate(to); // this will actually change the page
+  };
 
   const [userID, setUserID] = useState("");
   const [user, setUser] = useState("");
@@ -257,7 +284,7 @@ const SuperAdminApplicantResetPassword = () => {
     fontSize: "12px",
     height: 36,
     color: "white",
-    border: "1px solid white",
+    border: "2px solid white",
     backgroundColor: "transparent",
     ".MuiOutlinedInput-notchedOutline": {
       borderColor: "white",
@@ -306,13 +333,16 @@ const SuperAdminApplicantResetPassword = () => {
   }
   return (
     <Box sx={{ height: "calc(100vh - 150px)", overflowY: "auto", paddingRight: 1, backgroundColor: "transparent", mt: 1, padding: 2 }}>
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           flexWrap: "wrap",
+
           mb: 2,
+
         }}
       >
         <Typography
@@ -346,8 +376,120 @@ const SuperAdminApplicantResetPassword = () => {
       </Box>
 
       {searchError && <Typography color="error">{searchError}</Typography>}
-      <hr style={{ border: "1px solid #ccc", width: "100%" }} />
+      <hr style={{ border: "2px solid #ccc", width: "100%" }} />
       <br />
+
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          flexWrap: "nowrap", // ❌ prevent wrapping
+          width: "100%",
+          mt: 1,
+          gap: 2,
+        }}
+      >
+        {tabs.map((tab, index) => (
+          <Card
+            key={index}
+            onClick={() => handleStepClick(index, tab.to)}
+            sx={{
+              flex: `1 1 ${100 / tabs.length}%`, // evenly divide row
+              height: 135,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              borderRadius: 2,
+              border: `2px solid ${borderColor}`,
+              backgroundColor: activeStep === index ? settings?.header_color || "#1976d2" : "#E8C999",
+              color: activeStep === index ? "#fff" : "#000",
+              boxShadow:
+                activeStep === index
+                  ? "0px 4px 10px rgba(0,0,0,0.3)"
+                  : "0px 2px 6px rgba(0,0,0,0.15)",
+              transition: "0.3s ease",
+              "&:hover": {
+                backgroundColor: activeStep === index ? "#000000" : "#f5d98f",
+              },
+            }}
+          >
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <Box sx={{ fontSize: 40, mb: 1 }}>{tab.icon}</Box>
+              <Typography sx={{ fontSize: 14, fontWeight: "bold", textAlign: "center" }}>
+                {tab.label}
+              </Typography>
+            </Box>
+          </Card>
+        ))}
+      </Box>
+      <br />
+
+      <TableContainer component={Paper} sx={{ width: '100%', border: `2px solid ${borderColor}`, }}>
+        <Table>
+          <TableHead sx={{ backgroundColor: settings?.header_color || "#1976d2", }}>
+            <TableRow>
+              <TableCell sx={{ color: 'white', textAlign: "Center" }}>Applicant Information</TableCell>
+            </TableRow>
+          </TableHead>
+        </Table>
+      </TableContainer>
+
+
+
+      {/* Info Panel */}
+      <Paper sx={{ p: 3, border: `2px solid ${borderColor}`, }}>
+        <Box display="grid" gridTemplateColumns={{ xs: "1fr", sm: "1fr 1fr" }} gap={2}>
+          <TextField
+            label="Applicant Number"
+            value={userInfo ? userInfo.applicant_number || "" : ""}
+            fullWidth
+            InputProps={{ readOnly: true }}
+          />
+          <TextField
+            label="Email"
+            value={userInfo ? userInfo.email : ""}
+            fullWidth
+            InputProps={{ readOnly: true }}
+          />
+          <TextField
+            label="Full Name"
+            value={userInfo ? userInfo.fullName : ""}
+            fullWidth
+            InputProps={{ readOnly: true }}
+          />
+          <TextField
+            label="Birthdate"
+            type="date"
+            value={userInfo ? userInfo.birthdate : ""}
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: true }}
+          />
+          <TextField
+            select
+            label="Status"
+            value={userInfo ? userInfo.status ?? "" : ""}
+            fullWidth
+            onChange={handleStatusChange}
+          >
+            <MenuItem value={1}>Active</MenuItem>
+            <MenuItem value={0}>Inactive</MenuItem>
+          </TextField>
+        </Box>
+
+        <Box mt={3}>
+          <Button
+            variant="contained"
+            color="error"
+            style={{ backgroundColor: mainButtonColor, color: "white" }}
+            onClick={handleReset}
+            disabled={!userInfo || loading}
+          >
+            {loading ? "Processing..." : "Reset Password"}
+          </Button>
+        </Box>
+      </Paper>
       <TableContainer component={Paper} sx={{ width: "100%" }}>
         <Table size="small">
 
@@ -355,7 +497,7 @@ const SuperAdminApplicantResetPassword = () => {
           <TableHead>
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={6}
                 sx={{
                   border: `2px solid ${borderColor}`,
                   py: 0.5,
@@ -450,6 +592,7 @@ const SuperAdminApplicantResetPassword = () => {
               <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Full Name</TableCell>
               <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Birthday</TableCell>
               <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Email</TableCell>
+              <TableCell sx={{ ...headerStyle, backgroundColor: "white", color: "black" }}>Status</TableCell>
             </TableRow>
           </TableHead>
 
@@ -464,19 +607,19 @@ const SuperAdminApplicantResetPassword = () => {
             ) : (
               currentRows.map((applicant, index) => (
                 <TableRow key={index}>
-                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                  <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>
                     {indexOfFirstRow + index + 1}
                   </TableCell>
 
-                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                  <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>
                     {applicant.applicant_number}
                   </TableCell>
 
                   <TableCell
                     align="left"
                     sx={{
-                      border: `1px solid ${borderColor}`,
-                      color: "#1976d2",
+                      border: `2px solid ${borderColor}`,
+                      color: "blue",
                       cursor: "pointer",
                       fontWeight: 500,
                       "&:hover": {
@@ -489,12 +632,23 @@ const SuperAdminApplicantResetPassword = () => {
                   </TableCell>
 
 
-                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                  <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>
                     {formatDateLong(applicant.birthdate)}
                   </TableCell>
 
-                  <TableCell align="center" sx={{ border: `1px solid ${borderColor}` }}>
+                  <TableCell align="center" sx={{ border: `2px solid ${borderColor}` }}>
                     {applicant.email}
+                  </TableCell>
+
+                  <TableCell
+                    align="center"
+                    sx={{
+                      border: `2px solid ${borderColor}`,
+                      fontWeight: "bold",
+                      color: applicant.status === 0 ? "green" : "red",
+                    }}
+                  >
+                    {applicant.status === 0 ? "Active" : "Inactive"}
                   </TableCell>
                 </TableRow>
               ))
@@ -504,69 +658,7 @@ const SuperAdminApplicantResetPassword = () => {
         </Table>
       </TableContainer>
 
-      <TableContainer component={Paper} sx={{ width: '100%', border: `2px solid ${borderColor}`, }}>
-        <Table>
-          <TableHead sx={{ backgroundColor: settings?.header_color || "#1976d2", }}>
-            <TableRow>
-              <TableCell sx={{ color: 'white', textAlign: "Center" }}>Applicant Information</TableCell>
-            </TableRow>
-          </TableHead>
-        </Table>
-      </TableContainer>
 
-      {/* Info Panel */}
-      <Paper sx={{ p: 3, border: `2px solid ${borderColor}`, }}>
-        <Box display="grid" gridTemplateColumns={{ xs: "1fr", sm: "1fr 1fr" }} gap={2}>
-          <TextField
-            label="Applicant Number"
-            value={userInfo ? userInfo.applicant_number || "" : ""}
-            fullWidth
-            InputProps={{ readOnly: true }}
-          />
-          <TextField
-            label="Email"
-            value={userInfo ? userInfo.email : ""}
-            fullWidth
-            InputProps={{ readOnly: true }}
-          />
-          <TextField
-            label="Full Name"
-            value={userInfo ? userInfo.fullName : ""}
-            fullWidth
-            InputProps={{ readOnly: true }}
-          />
-          <TextField
-            label="Birthdate"
-            type="date"
-            value={userInfo ? userInfo.birthdate : ""}
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: true }}
-          />
-          <TextField
-            select
-            label="Status"
-            value={userInfo ? userInfo.status ?? "" : ""}
-            fullWidth
-            onChange={handleStatusChange}
-          >
-            <MenuItem value={1}>Active</MenuItem>
-            <MenuItem value={0}>Inactive</MenuItem>
-          </TextField>
-        </Box>
-
-        <Box mt={3}>
-          <Button
-            variant="contained"
-            color="error"
-            style={{ backgroundColor: mainButtonColor, color: "white" }}
-            onClick={handleReset}
-            disabled={!userInfo || loading}
-          >
-            {loading ? "Processing..." : "Reset Password"}
-          </Button>
-        </Box>
-      </Paper>
 
       <Snackbar
         open={snackbar.open}

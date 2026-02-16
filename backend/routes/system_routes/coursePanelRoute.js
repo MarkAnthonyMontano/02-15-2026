@@ -32,24 +32,26 @@ router.post("/adding_course", async (req, res) => {
   } = req.body;
 
   try {
-    // Allow letters, numbers, dash (-), underscore (_), dot (.)
-    const normalizeCode = (code) =>
-      (code || "").replace(/[^A-Za-z0-9-_\.]/g, "").toUpperCase();
 
-    const normalized_code = normalizeCode(course_code);
+    // Uncomment this block to enable course code normalization and validation
+    // // Allow letters, numbers, dash (-), underscore (_), dot (.)
+    // const normalizeCode = (code) =>
+    //   (code || "").replace(/[^A-Za-z0-9-_\.]/g, "").toUpperCase();
 
-    if (!normalized_code) {
-      return res.status(400).json({ message: "Course code is required" });
-    }
+    // const normalized_code = normalizeCode(course_code);
 
-    const [rows] = await db3.query(
-      "SELECT course_id FROM course_table WHERE course_code = ?",
-      [course_code]
-    );
+    // if (!normalized_code) {
+    //   return res.status(400).json({ message: "Course code is required" });
+    // }
 
-    if (rows.length > 0) {
-      return res.status(400).json({ message: "The course already exists" });
-    }
+    // const [rows] = await db3.query(
+    //   "SELECT course_id FROM course_table WHERE course_code = ?",
+    //   [course_code]
+    // );
+
+    // if (rows.length > 0) {
+    //   return res.status(400).json({ message: "The course already exists" });
+    // }
 
     await db3.query(
       `INSERT INTO course_table
@@ -109,16 +111,17 @@ router.put("/update_course/:id", async (req, res) => {
 
     // Duplicate check if changed
     // && final_course_code !== normalized_current_code
-    if (course_code) {
-      const [rows] = await db3.query(
-        "SELECT course_id FROM course_table WHERE course_code = ? AND course_id != ?",
-        [course_code, id]
-      );
+    // Uncomment this block to enable duplicate course code checking
+    // if (course_code) {
+    //   const [rows] = await db3.query(
+    //     "SELECT course_id FROM course_table WHERE course_code = ? AND course_id != ?",
+    //     [course_code, id]
+    //   );
 
-      if (rows.length > 0) {
-        return res.status(400).json({ message: "The course already exists" });
-      }
-    }
+    //   if (rows.length > 0) {
+    //     return res.status(400).json({ message: "The course already exists" });
+    //   }
+    // }
 
     await db3.query(
       `UPDATE course_table SET

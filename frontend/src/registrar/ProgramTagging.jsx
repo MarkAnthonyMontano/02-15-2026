@@ -611,8 +611,14 @@ const ProgramTagging = () => {
               <option value="">Choose Curriculum</option>
               {curriculumList.map((curriculum) => (
                 <option key={curriculum.curriculum_id} value={curriculum.curriculum_id}>
-                  {formatSchoolYear(curriculum.year_description)}: ({curriculum.program_code}) - {curriculum.program_description}
-                  {curriculum.major ? ` (${curriculum.major})` : ""}
+                  {formatSchoolYear(curriculum.year_description)}:{" "}
+              {`(${curriculum.program_code}): ${curriculum.program_description}${curriculum.major ? ` (${curriculum.major})` : ""
+                } (${Number(curriculum.components) === 1
+                  ? "Manila Campus"
+                  : Number(curriculum.components) === 2
+                    ? "Cavite Campus"
+                    : "—"
+                })`}
                 </option>
               ))}
             </select>
